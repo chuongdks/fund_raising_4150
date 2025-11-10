@@ -2,7 +2,7 @@
 
 import tkinter as tk
 from tkinter import messagebox
-import dashboards
+from FundRaiseGUI import dashboards
 
 class MainApp(tk.Tk):
     def __init__(self):

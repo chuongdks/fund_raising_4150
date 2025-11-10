@@ -2,9 +2,11 @@
 
 import tkinter as tk
 from tkinter import messagebox, ttk
-import mysql.connector
-import webbrowser   # for the admin class to open url link if needed
-import db_connector 
+import webbrowser
+# Import the Data Access Layer for simple fetch calls
+from FundRaiseDAL import db_connector 
+# Import the NEW Business Logic Layer
+from FundRaiseLIB import app_logic
 
 # NOTE: The MainApp class will be passed as 'controller' to handle frame switching.
 
@@ -56,7 +58,7 @@ class MainWindow(tk.Frame):
         for item in self.donations_tree.get_children():
             self.donations_tree.delete(item)
 
-        # Load FundsNeeded - UPDATED CALL
+        # Load FundsNeeded - Simple fetch remains in DAL
         funds_data = db_connector.fetch_funds_data()
         for fund in funds_data:
             needed = f"${fund[3]:.2f}"
@@ -64,7 +66,7 @@ class MainWindow(tk.Frame):
             funded = "YES" if fund[5] else "NO"
             self.funds_tree.insert('', tk.END, values=(fund[0], fund[1], fund[2], needed, raised, funded))
 
-        # Load Donations - UPDATED CALL
+        # Load Donations - Simple fetch remains in DAL
         donations_data = db_connector.fetch_donations_data()
         for donation in donations_data:
             donor_name = donation[2] if donation[2] is not None else "Anonymous"
@@ -76,6 +78,7 @@ class LoginWindow(tk.Frame):
     def __init__(self, master, controller):
         super().__init__(master)
         self.controller = controller
+        self.manager = app_logic.FundraisingManager() # Initialize BLL
         tk.Label(self, text="Welcome! Please Log In", font=("Arial", 16)).grid(row=0, columnspan=2, pady=10)
         tk.Label(self, text="Email:").grid(row=1, column=0, padx=10, pady=5, sticky='e')
         self.email_entry = tk.Entry(self, width=30)
@@ -89,8 +92,8 @@ class LoginWindow(tk.Frame):
     def handle_login(self):
         email = self.email_entry.get()
         password = self.password_entry.get() 
-        # UPDATED CALL
-        user_id, user_role = db_connector.authenticate_user(email, password) 
+        # DELEGATE LOGIN to BLL
+        user_id, user_role = self.manager.authenticate_user(email, password) 
 
         if user_id:
             messagebox.showinfo("Success", f"Logged in as {user_role}.")
@@ -123,6 +126,7 @@ class AdminDashboard(tk.Frame):
     def __init__(self, master, controller):
         super().__init__(master)
         self.controller = controller
+        self.manager = app_logic.FundraisingManager() # Initialize BLL
 
         tk.Label(self, text="🔑 Admin Dashboard", font=("Arial", 18, "bold")).pack(pady=10)
         tk.Button(self, text="Logout", command=controller.logout).pack(pady=10)
@@ -162,8 +166,7 @@ class AdminDashboard(tk.Frame):
         self.load_funds()
 
     def load_funds(self):
-        """Fetches and populates the fund selection dropdown with unverified funds."""
-        # UPDATED CALL
+        """Fetches and populates the fund selection dropdown with unverified funds (Simple fetch from DAL)."""
         self.funds_data = db_connector.fetch_unverified_funds()
         
         self.fund_descriptions = []
@@ -199,7 +202,7 @@ class AdminDashboard(tk.Frame):
             self.proof_label_text.set("")
             
     def open_proof_link(self, event):
-        """Opens the proof link in the user's default web browser."""
+        """Opens the proof link in the user's default web browser (GUI logic)."""
         link = self.proof_label_text.get()
         if link and link not in ('N/A', 'Loading Funds...', ''):
             try:
@@ -210,7 +213,7 @@ class AdminDashboard(tk.Frame):
              messagebox.showinfo("No Proof", "No proof of charge has been provided by the service provider yet.")
 
     def verify_fund(self):
-        """Updates the selected FundsNeeded record to set is_verified = TRUE."""
+        """DELEGATE FUND VERIFICATION to BLL."""
         selected_desc = self.fund_var.get()
         
         if selected_desc not in self.fund_map:
@@ -223,31 +226,22 @@ class AdminDashboard(tk.Frame):
             if not messagebox.askyesno("Confirm Verification", "No proof of charge has been provided for this fund. Do you still wish to verify it?"):
                 return
         
-        # UPDATED CALL
-        conn = db_connector.get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            try:
-                query = "UPDATE FundsNeeded SET is_verified = TRUE WHERE fund_id = %s"
-                cursor.execute(query, (fund_id,))
-                conn.commit()
-                messagebox.showinfo("Success", f"Fund ID {fund_id} has been successfully verified! It is now active for donations.")
-                
-                self.load_funds()
-                self.controller.show_frame(MainWindow) 
-                
-            except mysql.connector.Error as err:
-                conn.rollback()
-                messagebox.showerror("Database Error", f"Failed to verify fund: {err}")
-            finally:
-                cursor.close()
-                conn.close()
+        # DELEGATE to BLL
+        success, message = self.manager.verify_fund(fund_id)
+        
+        if success:
+            messagebox.showinfo("Success", message)
+            self.load_funds()
+            self.controller.show_frame(MainWindow) 
+        else:
+            messagebox.showerror("Database Error", message)
 
 class RecipientDashboard(tk.Frame):
     def __init__(self, master, controller, user_id):
         super().__init__(master)
         self.controller = controller
         self.user_id = user_id
+        self.manager = app_logic.FundraisingManager() # Initialize BLL
         
         tk.Label(self, text="💵 Recipient Dashboard", font=("Arial", 18, "bold")).pack(pady=10)
         tk.Button(self, text="Logout", command=controller.logout).pack(pady=10)
@@ -258,7 +252,7 @@ class RecipientDashboard(tk.Frame):
         form_frame.pack(padx=20, pady=10, fill='x')
 
         tk.Label(form_frame, text="Service Provider:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
-        # UPDATED CALL
+        
         self.services_data = db_connector.fetch_services()
         self.service_names = [name for id, name in self.services_data]
         self.service_map = {name: id for id, name in self.services_data}
@@ -288,54 +282,30 @@ class RecipientDashboard(tk.Frame):
             return
 
         service_name = self.service_var.get()
-        amount_needed = self.amount_entry.get()
+        amount_needed_str = self.amount_entry.get()
         proof_of_charge = self.proof_entry.get()
-        
-        if service_name not in self.service_map:
-            messagebox.showerror("Validation Error", "Please select a valid service provider.")
-            return
-
-        try:
-            amount_needed = float(amount_needed)
-            if amount_needed <= 0:
-                messagebox.showerror("Validation Error", "Amount must be greater than zero.")
-                return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Please enter a valid number for Amount Needed.")
-            return
-
-        service_id = self.service_map[service_name]
         recipient_id = self.user_id
 
-        # UPDATED CALL
-        conn = db_connector.get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            try:
-                query = """
-                INSERT INTO FundsNeeded 
-                (recipient_id, service_id, amount_needed, proof_of_charge, is_verified) 
-                VALUES (%s, %s, %s, %s, FALSE)
-                """
-                cursor.execute(query, (recipient_id, service_id, amount_needed, proof_of_charge))
-                conn.commit()
-                messagebox.showinfo("Success", "Fund Request submitted successfully! It is now pending Admin verification.")
-                
-                self.amount_entry.delete(0, tk.END)
-                self.proof_entry.delete(0, tk.END)
-                self.controller.show_frame(MainWindow)
-                
-            except mysql.connector.Error as err:
-                messagebox.showerror("Database Error", f"Failed to submit fund request: {err}")
-            finally:
-                cursor.close()
-                conn.close()
+        # DELEGATE FUND CREATION (including validation and DAL transaction) to BLL
+        success, message = self.manager.create_fund(
+            recipient_id, service_name, amount_needed_str, proof_of_charge, self.service_map
+        )
+        
+        if success:
+            messagebox.showinfo("Success", message)
+            self.amount_entry.delete(0, tk.END)
+            self.proof_entry.delete(0, tk.END)
+            self.controller.show_frame(MainWindow)
+        else:
+            # BLL handles identifying Validation vs. Database errors
+            messagebox.showerror("Error", message)
 
 class DonorDashboard(tk.Frame):
     def __init__(self, master, controller, user_id):
         super().__init__(master)
         self.controller = controller
         self.user_id = user_id
+        self.manager = app_logic.FundraisingManager() # Initialize BLL
         
         tk.Label(self, text="Donor Dashboard", font=("Arial", 18, "bold")).pack(pady=10)
         tk.Button(self, text="Logout", command=controller.logout).pack(pady=10)
@@ -373,8 +343,7 @@ class DonorDashboard(tk.Frame):
         self.load_funds()
 
     def load_funds(self):
-        """Fetches and populates the fund selection dropdown with active funds."""
-        # UPDATED CALL
+        """Fetches and populates the fund selection dropdown with active funds (Simple fetch from DAL)."""
         self.funds_data = db_connector.fetch_active_funds()
         self.fund_descriptions = [desc for id, desc, needed, raised, name in self.funds_data]
         self.fund_id_map = {desc: id for id, desc, needed, raised, name in self.funds_data}
@@ -400,64 +369,27 @@ class DonorDashboard(tk.Frame):
         fund_description = self.fund_var.get()
         donation_amount_str = self.amount_entry.get()
         is_anonymous = self.is_anonymous_var.get()
+        donor_user_id = self.user_id
+
+        # DELEGATE DONATION (including validation and transaction) to BLL
+        success, message = self.manager.submit_donation(
+            fund_description, donation_amount_str, is_anonymous, self.fund_id_map, donor_user_id
+        )
         
-        if fund_description not in self.fund_id_map:
-            messagebox.showerror("Validation Error", "Please select a valid active fund.")
-            return
-
-        try:
-            donation_amount = float(donation_amount_str)
-            if donation_amount <= 0:
-                messagebox.showerror("Validation Error", "Donation amount must be greater than zero.")
-                return
-        except ValueError:
-            messagebox.showerror("Validation Error", "Please enter a valid number for Donation Amount.")
-            return
-
-        fund_id = self.fund_id_map[fund_description]
-        donor_id_to_insert = None if is_anonymous else self.user_id
-
-        # UPDATED CALL
-        conn = db_connector.get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            try:
-                # 1. Insert into Donations table
-                donation_query = """
-                INSERT INTO Donations 
-                (fund_id, donor_id, donation_amount, payment_status) 
-                VALUES (%s, %s, %s, 'Completed')
-                """
-                cursor.execute(donation_query, (fund_id, donor_id_to_insert, donation_amount))
-                
-                # 2. Update FundsNeeded table (amount_raised and is_fully_funded)
-                update_fund_query = """
-                UPDATE FundsNeeded SET 
-                    amount_raised = amount_raised + %s, 
-                    is_fully_funded = IF((amount_raised + %s) >= amount_needed, TRUE, FALSE)
-                WHERE fund_id = %s
-                """
-                cursor.execute(update_fund_query, (donation_amount, donation_amount, fund_id))
-
-                conn.commit()
-                messagebox.showinfo("Success", f"Donation of ${donation_amount:.2f} submitted successfully to Fund ID {fund_id}!")
-                
-                self.amount_entry.delete(0, tk.END)
-                self.is_anonymous_var.set(False)
-                self.controller.show_frame(MainWindow) 
-                
-            except mysql.connector.Error as err:
-                conn.rollback() 
-                messagebox.showerror("Database Error", f"Failed to submit donation: {err}")
-            finally:
-                cursor.close()
-                conn.close()
+        if success:
+            messagebox.showinfo("Success", message)
+            self.amount_entry.delete(0, tk.END)
+            self.is_anonymous_var.set(False)
+            self.controller.show_frame(MainWindow) 
+        else:
+            messagebox.showerror("Error", message)
 
 class ServiceDashboard(tk.Frame):
     def __init__(self, master, controller, user_id):
         super().__init__(master)
         self.controller = controller
         self.user_id = user_id
+        self.manager = app_logic.FundraisingManager() # Initialize BLL
         
         tk.Label(self, text="Service Dashboard", font=("Arial", 18, "bold")).pack(pady=10)
         tk.Button(self, text="Logout", command=controller.logout).pack(pady=10)
@@ -489,11 +421,10 @@ class ServiceDashboard(tk.Frame):
         self.load_funds()
 
     def load_funds(self):
-        """Fetches and populates the fund selection dropdown."""
+        """Fetches and populates the fund selection dropdown (Simple fetch from DAL)."""
         if not self.user_id:
             return
 
-        # UPDATED CALL
         self.funds_data = db_connector.fetch_service_funds(self.user_id)
         
         self.fund_descriptions = []
@@ -520,7 +451,7 @@ class ServiceDashboard(tk.Frame):
         self.load_current_proof()
 
     def load_current_proof(self):
-        """Loads the proof_of_charge for the currently selected fund into the entry field."""
+        """Loads the proof_of_charge for the currently selected fund into the entry field (GUI logic)."""
         selected_desc = self.fund_var.get()
         if selected_desc in self.fund_map:
             fund_id, current_proof = self.fund_map[selected_desc]
@@ -530,7 +461,7 @@ class ServiceDashboard(tk.Frame):
             self.proof_entry.delete(0, tk.END)
 
     def update_proof(self):
-        """Updates the proof_of_charge for the selected fund in the FundsNeeded table."""
+        """DELEGATE PROOF UPDATE to BLL."""
         selected_desc = self.fund_var.get()
         new_proof = self.proof_entry.get()
         
@@ -538,27 +469,12 @@ class ServiceDashboard(tk.Frame):
             messagebox.showerror("Error", "Please select a valid fund.")
             return
         
-        fund_id, _ = self.fund_map[selected_desc]
-
-        # UPDATED CALL
-        conn = db_connector.get_db_connection()
-        if conn:
-            cursor = conn.cursor()
-            try:
-                query = """
-                UPDATE FundsNeeded 
-                SET proof_of_charge = %s
-                WHERE fund_id = %s AND service_id = %s
-                """
-                cursor.execute(query, (new_proof, fund_id, self.user_id))
-                conn.commit()
-                messagebox.showinfo("Success", f"Proof of Charge for Fund ID {fund_id} updated successfully!")
-                
-                self.load_funds() 
-                self.controller.show_frame(MainWindow)
-                
-            except mysql.connector.Error as err:
-                messagebox.showerror("Database Error", f"Failed to update proof of charge: {err}")
-            finally:
-                cursor.close()
-                conn.close()
+        # DELEGATE to BLL
+        success, message = self.manager.update_fund_proof(selected_desc, new_proof, self.user_id, self.fund_map)
+        
+        if success:
+            messagebox.showinfo("Success", message)
+            self.load_funds() 
+            self.controller.show_frame(MainWindow)
+        else:
+            messagebox.showerror("Error", message)

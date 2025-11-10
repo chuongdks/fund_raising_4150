@@ -1,5 +1,3 @@
-# db_connector.py
-
 import mysql.connector
 
 # --- 1. Database Configuration (Customize this!) ---
