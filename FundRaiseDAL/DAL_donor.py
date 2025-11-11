@@ -1,4 +1,4 @@
-from DAL_core import get_db_connection
+from .DAL_core import get_db_connection
 import mysql.connector
 
 # ============================================================
@@ -12,13 +12,13 @@ def fetch_active_funds():
         query = """
         SELECT 
             f.fund_id, 
-            CONCAT(f.fund_id, ': ', u_rec.name, ' (', s.service_name, ' - $', f.amount_needed, ')'),
+            CONCAT(f.fund_id, ': ', u_rec.name, ' (', s.name, ' - $', f.amount_needed, ')') AS fund_description,
             f.amount_needed,
             f.amount_raised,
             u_rec.name
         FROM FundsNeeded f
         JOIN Users u_rec ON f.recipient_id = u_rec.user_id
-        JOIN Users s ON f.service_id = s.user_id
+        JOIN Users s ON f.service_id = s.user_id -- 's' is the alias for the Users table (Service Provider)
         WHERE f.is_verified = TRUE AND f.is_fully_funded = FALSE
         ORDER BY f.fund_id ASC;
         """

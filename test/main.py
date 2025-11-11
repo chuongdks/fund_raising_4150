@@ -1,24 +1,8 @@
+# main_app.py
+
 import tkinter as tk
 from tkinter import messagebox
-# Import Core Views
-from FundRaiseGUI.GUI_core import MainWindow, LoginWindow, RegistrationWindow 
-
-# Import role-specific dashboards from their respective modules
-from FundRaiseGUI.GUI_admin import AdminDashboard
-from FundRaiseGUI.GUI_recipient import RecipientDashboard
-from FundRaiseGUI.GUI_donor import DonorDashboard
-from FundRaiseGUI.GUI_service import ServiceDashboard
-
-# List of all Frame classes to initialize
-DASHBOARD_CLASSES = (
-    MainWindow, 
-    LoginWindow, 
-    RegistrationWindow, 
-    AdminDashboard, 
-    RecipientDashboard, 
-    DonorDashboard, 
-    ServiceDashboard
-)
+import dashboards
 
 class MainApp(tk.Tk):
     def __init__(self):
@@ -36,12 +20,19 @@ class MainApp(tk.Tk):
 
         self.frames = {}
         
-        # Initialize all possible frames
-        for F in DASHBOARD_CLASSES:
+        # Initialize all possible frames 
+        for F in (
+            dashboards.MainWindow, 
+            dashboards.LoginWindow, 
+            dashboards.RegistrationWindow, 
+            dashboards.AdminDashboard, 
+            dashboards.RecipientDashboard, 
+            dashboards.DonorDashboard, 
+            dashboards.ServiceDashboard
+        ):
             page_name = F.__name__
-            
-            # Pass user_id=None for dashboards that require it
-            if F in (RecipientDashboard, DonorDashboard, ServiceDashboard):
+            # Dashboards require user_id, pass controller for now, update in login
+            if F in (dashboards.RecipientDashboard, dashboards.DonorDashboard, dashboards.ServiceDashboard):
                 frame = F(master=container, controller=self, user_id=None) 
             else:
                 frame = F(master=container, controller=self)
@@ -49,7 +40,8 @@ class MainApp(tk.Tk):
             self.frames[page_name] = frame
             frame.grid(row=0, column=0, sticky="nsew")
 
-        self.show_frame(MainWindow) # Start on the Main Window
+        # UPDATED REFERENCE
+        self.show_frame(dashboards.MainWindow) # Start on the Main Window
 
     def login(self, user_id, user_role):
         """Called upon successful login. Updates user info and routes to dashboard."""
@@ -59,27 +51,27 @@ class MainApp(tk.Tk):
         # Update user_id in the target frame before showing it
         target_frame_name = user_role + 'Dashboard'
         if user_role in ('Recipient', 'Donor', 'Service'):
-            # The dashboard classes now have their user_id updated before being shown
             self.frames[target_frame_name].user_id = user_id
         
-        # Route to the appropriate dashboard, ensuring data is refreshed
+        # Route to the appropriate dashboard, ensuring data is refreshed (UPDATED REFERENCES)
         if user_role == 'Admin':
-            self.show_frame(AdminDashboard)
+            self.show_frame(dashboards.AdminDashboard)
         elif user_role == 'Recipient':
-            self.show_frame(RecipientDashboard)
+            self.show_frame(dashboards.RecipientDashboard)
         elif user_role == 'Donor':
-            self.show_frame(DonorDashboard)
+            self.show_frame(dashboards.DonorDashboard)
         elif user_role == 'Service':
-            self.show_frame(ServiceDashboard)
+            self.show_frame(dashboards.ServiceDashboard)
         else:
             messagebox.showerror("Error", "Role not recognized.")
-            self.show_frame(LoginWindow)
+            self.show_frame(dashboards.LoginWindow)
 
     def logout(self):
         """Resets user state and returns to the Main Window."""
         self.user_id = None
         self.user_role = None
-        self.show_frame(MainWindow)
+        # UPDATED REFERENCE
+        self.show_frame(dashboards.MainWindow)
         
     def show_frame(self, cont):
         """Raises the requested frame to the top and reloads data if necessary."""
@@ -88,11 +80,9 @@ class MainApp(tk.Tk):
         # Data refresh logic for dynamic dashboards
         if cont.__name__ == 'MainWindow':
             frame.load_data()
-        elif cont.__name__ in ('AdminDashboard', 'DonorDashboard', 'ServiceDashboard', 'RecipientDashboard'):
-            # These dashboards must now have a load_funds() or similar method to refresh their data
-            # Note: RecipientDashboard might not need a load_funds if it only creates new requests.
-            if hasattr(frame, 'load_funds'):
-                 frame.load_funds() 
+        elif cont.__name__ in ('AdminDashboard', 'DonorDashboard', 'ServiceDashboard'):
+            # These dashboards have a load_funds() method to refresh their data
+            frame.load_funds() 
 
         frame.tkraise()
             

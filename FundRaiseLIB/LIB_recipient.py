@@ -1,4 +1,4 @@
-from FundRaiseDAL import DAL_recipient
+from FundRaiseDAL.DAL_recipient import fetch_all_services, insert_new_fund
 
 class RecipientManager:
     """Handles logic for creating and managing fund requests."""
@@ -6,7 +6,7 @@ class RecipientManager:
     def get_services_data(self):
         """Fetches all service providers for the dropdown list."""
         # Returns list of (id, name)
-        return DAL_recipient.fetch_all_services()
+        return fetch_all_services()
         
     def create_fund(self, recipient_id, service_name, amount_needed_str, proof_of_charge, service_map):
         """Submits a new fund request after validation."""
@@ -23,7 +23,7 @@ class RecipientManager:
 
         service_id = service_map[service_name]
         
-        success, db_message = DAL_recipient.insert_new_fund(
+        success, db_message = insert_new_fund(
             recipient_id, service_id, amount_needed, proof_of_charge
         )
         

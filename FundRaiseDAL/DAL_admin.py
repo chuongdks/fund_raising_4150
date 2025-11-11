@@ -1,4 +1,4 @@
-from DAL_core import get_db_connection
+from FundRaiseDAL.DAL_core import get_db_connection
 import mysql.connector
 
 # ============================================================
