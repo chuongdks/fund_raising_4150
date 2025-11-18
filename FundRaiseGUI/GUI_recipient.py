@@ -30,7 +30,11 @@ class RecipientDashboard(tk.Frame):
         else:
             self.service_var.set("No Services Available")
 
-        service_menu = tk.OptionMenu(form_frame, self.service_var, *self.service_names)
+        # Ensure OptionMenu always receives at least one value. If the
+        # services list is empty, provide a placeholder option to avoid
+        # TypeError from tkinter.OptionMenu
+        initial_options = self.service_names if self.service_names else ["No Services Available"]
+        service_menu = tk.OptionMenu(form_frame, self.service_var, *initial_options)
         service_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
         
         tk.Label(form_frame, text="Amount Needed ($):").grid(row=1, column=0, padx=5, pady=5, sticky='w')
