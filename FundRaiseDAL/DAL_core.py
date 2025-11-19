@@ -3,7 +3,7 @@ import mysql.connector
 
 DB_CONFIG = {
     'user': 'root',         #  CHANGE USERNAME
-    'password': '',   # AND PASSWORD 
+    'password': 'Chuck!2345',   # AND PASSWORD 
     'host': '127.0.0.1',
     'database': 'fundraising_db'
 }
