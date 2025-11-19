@@ -98,16 +98,53 @@ class RegistrationWindow(tk.Frame):
         super().__init__(master)
         self.controller = controller
         tk.Label(self, text="New User Registration", font=("Arial", 16)).grid(row=0, columnspan=2, pady=10)
-        tk.Label(self, text="Choose Role:").grid(row=1, column=0, padx=10, pady=5, sticky='e')
+
+        tk.Label(self, text="Full Name:").grid(row=1, column=0, padx=10, pady=5, sticky='e')
+        self.name_entry = tk.Entry(self, width=30)
+        self.name_entry.grid(row=1, column=1, padx=10, pady=5)
+
+        tk.Label(self, text="Email:").grid(row=2, column=0, padx=10, pady=5, sticky='e')
+        self.email_entry = tk.Entry(self, width=30)
+        self.email_entry.grid(row=2, column=1, padx=10, pady=5)
+
+        tk.Label(self, text="Password:").grid(row=3, column=0, padx=10, pady=5, sticky='e')
+        self.password_entry = tk.Entry(self, show="*", width=30)
+        self.password_entry.grid(row=3, column=1, padx=10, pady=5)
+
+        tk.Label(self, text="Confirm Password:").grid(row=4, column=0, padx=10, pady=5, sticky='e')
+        self.confirm_entry = tk.Entry(self, show="*", width=30)
+        self.confirm_entry.grid(row=4, column=1, padx=10, pady=5)
+
+        tk.Label(self, text="Choose Role:").grid(row=5, column=0, padx=10, pady=5, sticky='e')
         self.role_var = tk.StringVar(self)
         self.role_var.set("Recipient")
         roles = ['Recipient', 'Donor', 'Service', 'Admin']
-        tk.OptionMenu(self, self.role_var, *roles).grid(row=1, column=1, padx=10, pady=5, sticky='w')
-        tk.Button(self, text="Complete Registration", command=self.handle_registration).grid(row=5, column=1, pady=10, sticky='w')
-        tk.Button(self, text="Back to Main", command=lambda: controller.show_frame(MainWindow)).grid(row=6, columnspan=2, pady=10)
+        tk.OptionMenu(self, self.role_var, *roles).grid(row=5, column=1, padx=10, pady=5, sticky='w')
+
+        tk.Button(self, text="Complete Registration", command=self.handle_registration).grid(row=6, column=1, pady=10, sticky='w')
+        tk.Button(self, text="Back to Main", command=lambda: controller.show_frame(MainWindow)).grid(row=7, columnspan=2, pady=10)
+
+        # LIB auth manager for registration
+        from FundRaiseLIB import LIB_core
+        self.auth_manager = LIB_core.AuthManager()
 
     def handle_registration(self):
+        name = self.name_entry.get().strip()
+        email = self.email_entry.get().strip()
+        password = self.password_entry.get()
+        confirm = self.confirm_entry.get()
         role = self.role_var.get()
-        messagebox.showinfo("Registered", f"Registration simulated! New user created with role: {role}. You can now log in.")
-        self.controller.show_frame(LoginWindow)
-    pass
+
+        if not all([name, email, password, confirm]):
+            messagebox.showerror("Registration Error", "All fields are required.")
+            return
+        if password != confirm:
+            messagebox.showerror("Registration Error", "Passwords do not match.")
+            return
+
+        success, result = self.auth_manager.register_user(name, email, password, role)
+        if success:
+            messagebox.showinfo("Registered", f"Successfully registered. Your user id: {result}. You can now log in.")
+            self.controller.show_frame(LoginWindow)
+        else:
+            messagebox.showerror("Registration Failed", result)

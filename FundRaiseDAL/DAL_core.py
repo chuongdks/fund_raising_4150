@@ -1,4 +1,5 @@
 import mysql.connector
+import hashlib
 
 # ============================================================
 # Database Configuration 
@@ -23,17 +24,75 @@ def get_db_connection():
 # Database Shared Query Functions 
 # ============================================================
 def authenticate_user(email, password):
-    """Checks credentials and returns (user_id, user_type) if valid."""
+    """Checks credentials and returns (user_id, user_type) if valid.
+
+    This function now fetches the stored password_hash for the user and
+    compares it against the provided password after hashing with SHA-256.
+    """
+    row = fetch_user_by_email(email)
+    if not row:
+        return (None, None)
+
+
+    stored_hash = row[2]  # expecting (user_id, user_type, password_hash)
+    # Hash the supplied password the same way create_user does
+    supplied_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    # Accept either a hashed password (SHA-256 hex) or legacy plaintext stored password.
+    if supplied_hash == stored_hash or password == stored_hash:
+        return (row[0], row[1])
+    return (None, None)
+
+
+def fetch_user_by_email(email):
+    """Returns (user_id, user_type, password_hash) for the given email or None."""
     conn = get_db_connection()
     if conn:
         cursor = conn.cursor()
-        query = "SELECT user_id, user_type FROM Users WHERE email = %s AND password_hash = %s"
-        cursor.execute(query, (email, password))
-        result = cursor.fetchone()
+        query = "SELECT user_id, user_type, password_hash FROM Users WHERE email = %s"
+        cursor.execute(query, (email,))
+        row = cursor.fetchone()
         cursor.close()
         conn.close()
-        return result if result else (None, None)
-    return (None, None)
+        return row
+    return None
+
+
+def fetch_user_by_id(user_id):
+    """Returns the user row for a given user_id or None."""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        query = "SELECT user_id, name, email, user_type FROM Users WHERE user_id = %s"
+        cursor.execute(query, (user_id,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return row
+    return None
+
+
+def create_user(name, email, password, user_type):
+    """Creates a new user. Returns (True, user_id) or (False, error_message).
+
+    The password is hashed with SHA-256 before storing.
+    """
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+            query = "INSERT INTO Users (name, email, password_hash, user_type) VALUES (%s, %s, %s, %s)"
+            cursor.execute(query, (name, email, password_hash, user_type))
+            conn.commit()
+            user_id = cursor.lastrowid
+            cursor.close()
+            conn.close()
+            return True, user_id
+        except mysql.connector.Error as err:
+            cursor.close()
+            conn.close()
+            return False, str(err)
+    return False, "Failed to connect to the database."
 
 def fetch_funds_data():
     """Fetches key information about all FundsNeeded for the Main Window."""
