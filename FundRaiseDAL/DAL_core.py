@@ -182,3 +182,50 @@ def update_user_profile(user_id, name=None, phone_number=None, address=None):
             cursor.close()
             conn.close()
     return False, 'Failed to connect to the database.'
+
+# --- Profile-specific Fetch Functions ---
+
+def fetch_recipient_profile(user_id):
+    """Return recipient-specific profile row or None. (user_id, contact_email, join_date)"""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT user_id, contact_email, join_date FROM Recipients WHERE user_id = %s", (user_id,))
+            return cursor.fetchone()
+        finally:
+            cursor.close()
+            conn.close()
+    return None
+
+
+def fetch_donor_profile(user_id):
+    """Return donor-specific profile row or None. (user_id, is_anonymous_default, join_date)"""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT user_id, is_anonymous_default, join_date FROM Donors WHERE user_id = %s", (user_id,))
+            return cursor.fetchone()
+        finally:
+            cursor.close()
+            conn.close()
+    return None
+
+
+def fetch_service_profile(user_id):
+    """
+    Return service-specific profile row or None.
+    Expected return: (user_id, service_name, service_description, tax_id_number)
+    """
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            query = "SELECT user_id, service_name, service_description, tax_id_number FROM Services WHERE user_id = %s"
+            cursor.execute(query, (user_id,))
+            return cursor.fetchone()
+        finally:
+            cursor.close()
+            conn.close()
+    return None

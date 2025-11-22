@@ -5,7 +5,7 @@ from FundRaiseLIB import LIB_donor
 
 class DonorDashboard(tk.Frame):
     """Donor-facing dashboard: submit donations and manage own donations."""
-
+    # Initialize the GUI
     def __init__(self, master, controller, user_id):
         super().__init__(master)
         self.controller = controller
@@ -70,11 +70,13 @@ class DonorDashboard(tk.Frame):
 
         # Load initial data
         self.load_funds()
-        self.load_my_donations_table()
+        
 
+    # Load the Fund raises and the donation tables
     def load_funds(self):
         try:
             funds = self.manager.get_active_funds_list()
+            self.load_my_donations_table()  # put the donation table list here for it to work with init
         except Exception:
             funds = []
 
@@ -96,6 +98,7 @@ class DonorDashboard(tk.Frame):
             menu.add_command(label='No active funds', command=lambda: None)
             self.fund_var.set('No active funds')
 
+    # Submit a donation
     def submit_donation(self):
         fund_description = self.fund_var.get()
         amount_str = self.amount_entry.get().strip()
@@ -122,6 +125,7 @@ class DonorDashboard(tk.Frame):
         else:
             messagebox.showerror("Error", message)
 
+    # Load the user past donations
     def load_my_donations_table(self):
         for item in self.my_donations_tree.get_children():
             self.my_donations_tree.delete(item)
@@ -141,6 +145,7 @@ class DonorDashboard(tk.Frame):
             date_str = donation_date.strftime("%Y-%m-%d") if donation_date else "N/A"
             self.my_donations_tree.insert('', tk.END, values=(donation_id, fund_id, f"{float(donation_amount):.2f}", payment_status, date_str))
 
+    # Select a past donation to view or edit
     def on_donation_select(self, event):
         selection = self.my_donations_tree.selection()
         if not selection:
@@ -159,6 +164,7 @@ class DonorDashboard(tk.Frame):
             self.edit_amount_entry.delete(0, tk.END)
             self.edit_amount_entry.insert(0, str(row[2]))
 
+    # Helper function for update donation
     def handle_update_donation(self):
         if not self.selected_donation_id:
             messagebox.showerror("Error", "Please select a donation first.")
@@ -171,6 +177,7 @@ class DonorDashboard(tk.Frame):
         else:
             messagebox.showerror("Error", msg)
 
+    # Helper function for delete donation
     def handle_delete_donation(self):
         if not self.selected_donation_id:
             messagebox.showerror("Error", "Please select a donation first.")

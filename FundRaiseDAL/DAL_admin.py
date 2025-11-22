@@ -26,31 +26,17 @@ def fetch_unverified_funds():
         WHERE f.is_verified = FALSE
         ORDER BY f.fund_id ASC;
         """
-        cursor.execute(query)
-        data = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return data
-    return []
-
-def update_fund_verification_status(fund_id: int) -> bool:
-    """Updates a fund's is_verified status to TRUE."""
-    conn = get_db_connection()
-    if conn:
-        cursor = conn.cursor()
         try:
-            query = "UPDATE FundsNeeded SET is_verified = TRUE WHERE fund_id = %s"
-            cursor.execute(query, (fund_id,))
-            conn.commit()
-            return True
-        except mysql.connector.Error:
-            conn.rollback()
-            return False
+            cursor.execute(query)
+            data = cursor.fetchall()
+            return data
+        except mysql.connector.Error as err:
+            print(f"DAL_admin.fetch_unverified_funds Error: {err}")
+            return []
         finally:
             cursor.close()
             conn.close()
-    return False
-
+    return []
 
 def fetch_all_funds():
     """
@@ -83,6 +69,24 @@ def fetch_all_funds():
         conn.close()
         return rows
     return []
+
+def update_fund_verification_status(fund_id: int) -> bool:
+    """Updates a fund's is_verified status to TRUE."""
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            query = "UPDATE FundsNeeded SET is_verified = TRUE WHERE fund_id = %s"
+            cursor.execute(query, (fund_id,))
+            conn.commit()
+            return True
+        except mysql.connector.Error:
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+    return False
 
 
 def update_fund_amount_and_proof(fund_id: int, new_amount: float, new_proof: str):

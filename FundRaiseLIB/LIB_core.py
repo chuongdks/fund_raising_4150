@@ -35,11 +35,54 @@ class AuthManager:
         # Create user (DAL_core will hash the password)
         success, result = DAL_core.create_user(name, email, password, role)
         if success:
-            # Note: role_data is currently collected by the GUI and passed here
-            # but insertion into role-specific tables (Recipients/Services/Donors)
-            # should be implemented in DAL layer. For now, return success and
-            # the new user_id so the caller can act on role_data if desired.
-            return True, result
+            user_id = result # result is user_id on success
+            
+            # --- Add the role-specific profile creation ---
+            if role == 'Service':
+                # Use default data for a basic service profile registration
+                s_name = ''
+                s_desc = ''
+                tax_id = ''
+                
+                # Use role_data if it was passed (e.g., from an Admin UI)
+                if role_data:
+                    s_name = role_data.get('service_name', s_name)
+                    s_desc = role_data.get('service_description', s_desc)
+                    tax_id = role_data.get('tax_id_number', tax_id)
+
+                # Call the DAL to create the Service-specific profile row
+                ok, msg = DAL_service.upsert_service_profile(user_id, s_name, s_desc, tax_id) #
+                
+                if not ok:
+                    # Optional: Add error handling if the profile creation fails
+                    return False, f"User created, but failed to create Service profile: {msg}"
+                
+            elif role == 'Recipient':
+                # Recipient only requires 'contact_email', defaulting to the primary user email
+                contact_email = email 
+                if role_data:
+                    contact_email = role_data.get('contact_email', contact_email)
+                
+                # Call the DAL to create the Recipient-specific profile row
+                ok, msg = DAL_recipient.upsert_recipient_profile(user_id, contact_email)
+                if not ok:
+                    return False, f"User created, but failed to create Recipient profile: {msg}"
+            
+            elif role == 'Donor':
+                # Donor only requires 'is_anonymous_default', defaulting to False
+                is_anonymous_default = False 
+                if role_data:
+                    # Safely convert input to a boolean (e.g., from a GUI checkbox or form data)
+                    is_anonymous_default_val = role_data.get('is_anonymous_default')
+                    if is_anonymous_default_val is not None:
+                        is_anonymous_default = str(is_anonymous_default_val).lower() in ('true', '1', 'yes') or is_anonymous_default_val is True
+                
+                # Call the DAL to create the Donor-specific profile row
+                ok, msg = DAL_donor.upsert_donor_profile(user_id, is_anonymous_default)
+                if not ok:
+                    return False, f"User created, but failed to create Donor profile: {msg}"
+                
+            return True, user_id
         return False, result
 
 

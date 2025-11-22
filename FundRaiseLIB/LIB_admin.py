@@ -40,15 +40,18 @@ class AdminManager:
         if not fund_id:
             return False, "Please select a fund to update."
 
+        # 1. Validation for amount
         try:
             new_amount = float(new_amount_str)
             if new_amount <= 0:
                 return False, "Amount Needed must be greater than zero."
         except ValueError:
             return False, "Please enter a valid number for Amount Needed."
-
+        
+        # 2. Validation for proof
         if new_proof is None:
             new_proof = ""
+            
         success, db_msg = DAL_admin.update_fund_amount_and_proof(fund_id, new_amount, new_proof)
         if success:
             return True, f"Fund ID {fund_id} updated successfully."

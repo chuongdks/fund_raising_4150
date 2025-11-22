@@ -95,7 +95,7 @@ class RecipientDashboard(tk.Frame):
         tk.Button(crud_frame, text="Delete Selected Fund", command=self.handle_delete_fund).grid(row=4, column=1, padx=5, pady=10, sticky='w')
 
         # Load data
-        self.load_my_funds_table()
+        self.load_funds()
 
     def create_fund(self):
         if not self.user_id:
@@ -115,13 +115,13 @@ class RecipientDashboard(tk.Frame):
             self.amount_entry.delete(0, tk.END)
             self.proof_entry.delete(0, tk.END)
             # After creating, refresh table too
-            self.load_my_funds_table()
+            self.load_funds()
             self.controller.show_frame(MainWindow)
         else:
             # LIB returns descriptive messages for validation or DB errors
             messagebox.showerror("Error", message)
 
-    def load_my_funds_table(self):
+    def load_funds(self):
         """Load all funds created by this recipient."""
         for item in self.my_funds_tree.get_children():
             self.my_funds_tree.delete(item)
@@ -185,7 +185,7 @@ class RecipientDashboard(tk.Frame):
         success, msg = self.manager.update_fund(self.user_id, self.selected_fund_id, amount_str, proof)
         if success:
             messagebox.showinfo("Success", msg)
-            self.load_my_funds_table()
+            self.load_funds()
         else:
             messagebox.showerror("Error", msg)
 
@@ -203,6 +203,6 @@ class RecipientDashboard(tk.Frame):
         success, msg = self.manager.delete_fund(self.user_id, self.selected_fund_id)
         if success:
             messagebox.showinfo("Success", msg)
-            self.load_my_funds_table()
+            self.load_funds()
         else:
             messagebox.showerror("Error", msg)
