@@ -48,10 +48,16 @@ class AdminDashboard(tk.Frame):
         self.proof_label.grid(row=1, column=1, padx=5, pady=5, sticky='w')
         self.proof_label.bind("<Button-1>", self.open_proof_link)
 
-        # Action buttons
+        # New: Admin Notes Field (row 2)
+        tk.Label(form_frame, text="Admin Notes:").grid(row=2, column=0, padx=5, pady=5, sticky='w') 
+        self.admin_notes_entry = tk.Entry(form_frame, width=50) 
+        self.admin_notes_entry.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
+        
+        # Action button container (row 3)
         button_frame = tk.Frame(form_frame)
-        button_frame.grid(row=2, columnspan=2, pady=15)
-        tk.Button(button_frame, text="✅ Verify Fund", command=self.verify_fund, bg='green', fg='white').pack(side=tk.LEFT, padx=10)
+        button_frame.grid(row=3, columnspan=2, pady=15) # Row is 3
+        # Ensure the button command is self.verify_fund
+        tk.Button(button_frame, text="Verify Fund", command=self.verify_fund, bg='green', fg='white').pack(side=tk.LEFT, padx=10)   
 
         # Bind selection change
         self.fund_var.trace_add("write", lambda *args: self.load_current_proof())
@@ -190,21 +196,34 @@ class AdminDashboard(tk.Frame):
     def verify_fund(self):
         """Uses LIB layer to verify selected fund."""
         selected_desc = self.fund_var.get()
+        
+        # Check if a fund is selected
         if selected_desc not in self.fund_map:
             messagebox.showerror('Error', 'Please select a valid fund to verify.')
             return
 
         fund_id, current_proof = self.fund_map[selected_desc]
-
+        
+        # --- GET ADMIN ID AND NOTES ---
+        admin_id = self.controller.user_id 
+        admin_notes = self.admin_notes_entry.get()
+        
+        if not admin_id:
+             messagebox.showerror("Error", "Admin ID is missing. Cannot proceed with verification.")
+             return
+         
         if current_proof == 'N/A':
             if not messagebox.askyesno('Confirm Verification', 'No proof of charge has been provided for this fund. Do you still wish to verify it?'):
                 return
-
-        success, msg = self.admin_manager.verify_fund(fund_id)
+            
+        # CALL to LIB with all 3 parameters
+        success, msg = self.admin_manager.verify_fund(fund_id, admin_id, admin_notes)
+        
         if success:
             messagebox.showinfo('Success', msg)
-            self.load_funds() # Refresh both tables
-            self.controller.frames['MainWindow'].load_data() # Refresh MainWindow
+            self.load_funds() # Refresh tables
+            self.admin_notes_entry.delete(0, tk.END) # Clear the notes field after success
+            self.controller.frames['MainWindow'].load_data()        
         else:
             messagebox.showerror('Error', msg)
 
@@ -292,7 +311,4 @@ class AdminDashboard(tk.Frame):
                     "YES" if is_fully_funded else "NO",
                 )
             )
-            
-
-
 

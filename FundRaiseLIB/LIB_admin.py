@@ -12,17 +12,24 @@ class AdminManager:
         """
         return DAL_admin.fetch_unverified_funds()
 
-    def verify_fund(self, fund_id):
+    def verify_fund(self, fund_id, admin_id, admin_notes):
         """Coordinates fund verification using the Admin DAL."""
         if not fund_id:
             return False, "Error: Fund ID is missing."
+        if not admin_id:
+            return False, "Error: Admin ID is missing. Cannot verify."
 
-        success = DAL_admin.update_fund_verification_status(fund_id)
+        # Pass all required parameters to the updated DAL function
+        success, db_msg = DAL_admin.update_fund_verification_status(
+            fund_id, 
+            admin_id, 
+            admin_notes
+        )
 
         if success:
             return True, f"Fund ID {fund_id} has been successfully verified! It is now active for donations."
         else:
-            return False, "Failed to verify fund due to a database error."
+            return False, "Failed to verify fund due to a database error: {db_msg}"
 
     def get_all_funds_list(self):
         """

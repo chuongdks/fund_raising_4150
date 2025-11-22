@@ -1,5 +1,6 @@
 from FundRaiseDAL.DAL_core import get_db_connection
 import mysql.connector
+from datetime import datetime
 
 # ============================================================
 # Helper Query Functions related to admin role
@@ -70,16 +71,32 @@ def fetch_all_funds():
         return rows
     return []
 
-def update_fund_verification_status(fund_id: int) -> bool:
-    """Updates a fund's is_verified status to TRUE."""
+def update_fund_verification_status(fund_id: int, admin_id: int, admin_notes: str) -> bool:
+    """
+    Updates the verification status of a fund, recording the admin who did it 
+    and the notes/date.
+    Returns (success: bool, message: str).
+    """
     conn = get_db_connection()
+    current_time = datetime.now()
+    
     if conn:
         cursor = conn.cursor()
+        
         try:
-            query = "UPDATE FundsNeeded SET is_verified = TRUE WHERE fund_id = %s"
-            cursor.execute(query, (fund_id,))
+            query = """
+            UPDATE FundsNeeded
+            SET is_verified = TRUE,
+                verified_by_admin_id = %s,   
+                admin_notes = %s,             
+                verification_date = %s       
+            WHERE fund_id = %s
+            """
+            # Updated parameters list to match the new query
+            params = (admin_id, admin_notes, current_time, fund_id) 
+            cursor.execute(query, params)
             conn.commit()
-            return True
+            return True, "Success"
         except mysql.connector.Error:
             conn.rollback()
             return False
