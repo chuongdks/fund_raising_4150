@@ -96,6 +96,5 @@ class ServiceDashboard(tk.Frame):
         if success:
             messagebox.showinfo("Success", message)
             self.load_funds()
-            self.controller.show_frame(MainWindow)
         else:
             messagebox.showerror("Error", message)

@@ -116,7 +116,6 @@ class RecipientDashboard(tk.Frame):
             self.proof_entry.delete(0, tk.END)
             # After creating, refresh table too
             self.load_funds()
-            self.controller.show_frame(MainWindow)
         else:
             # LIB returns descriptive messages for validation or DB errors
             messagebox.showerror("Error", message)
