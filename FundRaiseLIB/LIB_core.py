@@ -1,6 +1,6 @@
 from FundRaiseDAL import DAL_core
 from FundRaiseDAL import DAL_recipient, DAL_service, DAL_donor
-
+from FundRaiseDAL import DAL_admin
 
 class AuthManager:
     """Handles login and registration logic."""
@@ -82,6 +82,13 @@ class AuthManager:
                 if not ok:
                     return False, f"User created, but failed to create Donor profile: {msg}"
                 
+            elif role == 'Admin':
+                # Call the DAL function to create the Admin profile record
+                success, msg = DAL_admin.upsert_admin_profile(user_id)
+                if not success:
+                    # Main user creation succeeded, but profile failed. Print warning.
+                    print(f"Warning: Failed to create Admin profile for user {user_id}: {msg}")
+                    
             return True, user_id
         return False, result
 

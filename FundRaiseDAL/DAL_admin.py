@@ -155,3 +155,35 @@ def delete_fund(fund_id: int):
             cursor.close()
             conn.close()
     return False, "Failed to connect to the database."
+
+
+def upsert_admin_profile(user_id: int):
+    """
+    Inserts a new record into the Admins profile table if it doesn't exist.
+    This is required to properly register an Admin role.
+    Returns (success: bool, message: str).
+    """
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            # Check if Admin profile already exists (to prevent duplicates)
+            cursor.execute("SELECT user_id FROM Admins WHERE user_id = %s", (user_id,))
+            exists = cursor.fetchone()
+            
+            if not exists:
+                # Insert if it doesn't exist
+                # Assumes the Admins table only requires the user_id foreign key
+                cursor.execute(
+                    "INSERT INTO Admins (user_id) VALUES (%s)",
+                    (user_id,)
+                )
+            conn.commit()
+            return True, 'Success'
+        except mysql.connector.Error as err:
+            conn.rollback()
+            return False, str(err)
+        finally:
+            cursor.close()
+            conn.close()
+    return False, "Failed to connect to the database."

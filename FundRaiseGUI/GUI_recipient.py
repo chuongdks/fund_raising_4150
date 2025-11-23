@@ -28,24 +28,24 @@ class RecipientDashboard(tk.Frame):
 
         tk.Label(form_frame, text="Service Provider:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
 
-        self.services_data = self.manager.get_services_data()  # LIB call
-        self.service_names = [name for id, name in self.services_data]
-        self.service_map = {name: id for id, name in self.services_data}
+        # Data will be loaded by self.load_services_data()
+        self.services_data = [] 
+        self.service_names = []
+        self.service_map = {}
 
         self.service_var = tk.StringVar(self)
-        initial_options = self.service_names if self.service_names else ["No Services Available"]
-        if self.service_names:
-            self.service_var.set(self.service_names[0])
-        else:
-            self.service_var.set(initial_options[0])
-
-        service_menu = tk.OptionMenu(form_frame, self.service_var, *initial_options)
-        service_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
-
+        self.service_var.set("Loading Services...")
+        
+        # Create the OptionMenu with a temporary placeholder option
+        self.service_menu = tk.OptionMenu(form_frame, self.service_var, "Loading Services...") 
+        self.service_menu.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+        
+        #
         tk.Label(form_frame, text="Amount Needed ($):").grid(row=1, column=0, padx=5, pady=5, sticky='w')
         self.amount_entry = tk.Entry(form_frame, width=20)
         self.amount_entry.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
 
+        #
         tk.Label(form_frame, text="Proof of Charge (URL):").grid(row=2, column=0, padx=5, pady=5, sticky='w')
         self.proof_entry = tk.Entry(form_frame, width=20)
         self.proof_entry.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
@@ -123,6 +123,10 @@ class RecipientDashboard(tk.Frame):
 
     def load_funds(self):
         """Load all funds created by this recipient."""
+        
+        # Refresh the services dropdown first
+        self.load_services_data()
+        
         for item in self.my_funds_tree.get_children():
             self.my_funds_tree.delete(item)
 
@@ -206,3 +210,30 @@ class RecipientDashboard(tk.Frame):
             self.load_funds()
         else:
             messagebox.showerror("Error", msg)
+            
+    # Add this QoL method so that Recipient Dashboard can load new register Service 
+    def load_services_data(self):
+        """Fetches the latest service data and updates the OptionMenu dynamically."""
+        
+        # 1. Fetch latest data
+        self.services_data = self.manager.get_services_data()  # LIB call
+        self.service_names = [name for id, name in self.services_data]
+        self.service_map = {name: id for id, name in self.services_data}
+        
+        # 2. Get the Tkinter menu object attached to the OptionMenu widget
+        menu = self.service_menu.children['menu']
+        menu.delete(0, 'end') # Clear all previous options
+        
+        options = self.service_names if self.service_names else ["No Services Available"]
+        
+        # 3. Add new options
+        for name in options:
+            menu.add_command(label=name, command=tk._setit(self.service_var, name))
+            
+        # 4. Set the default selection
+        if options:
+            # Check if the current selection is still valid, if not, set to the first option
+            if self.service_var.get() not in options: 
+                 self.service_var.set(options[0])
+        else:
+            self.service_var.set("No Services Available")
